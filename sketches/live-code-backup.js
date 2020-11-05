@@ -3,8 +3,8 @@ let c;
 let bgHue = 0;
 let bgSaturation = 0;
 let bgBrightness = 0;
-let bgOpacity = 25;
-let animationSpeed = 1;
+let bgOpacity = 0;
+let animationSpeed = 0;
 
 function preload() {
 	loadShaders();
@@ -12,6 +12,9 @@ function preload() {
 
 function setup() {
 	// frameRate(60);
+	
+	restoreVariables(mapMidiToValue, "MIDI");
+	restoreVariables(mapCacheToValue, "APP");
 	
 	// Setup
 	createCanvas(windowWidth, windowHeight, WEBGL);
@@ -35,8 +38,9 @@ function draw() {
 	c.background(bgHue, bgSaturation, bgBrightness, bgOpacity);
 
 	// Generated chasing dots
-	for(let i = 1; i <= 12; i++) {
-		drawStep(i / (4 / animationSpeed), i / (4 / animationSpeed), 3);
+	const now = Date.now() / 100;
+	for(let i = 1; i <= 24; i++) {
+		drawStep(i / (8 / animationSpeed), i / (8 / animationSpeed), 3, now);
 	}
 	
 	applyShaders();
@@ -47,10 +51,10 @@ function draw() {
 // ANIMATION SHIZZLE
 //**************************************
 
-function drawStep(xSpeed, ySpeed, pulseSpeed) {
-	let oscX = sin(frameCount * 0.01 * xSpeed) * height * .4;
-	let oscY = cos(frameCount * 0.01 * ySpeed) * height * .4;
-	let radius = positiveModulate(sin(frameCount * 0.01 * pulseSpeed)) * 10 + 10;
+function drawStep(xSpeed, ySpeed, pulseSpeed, timestamp) {
+	let oscX = sin(timestamp * 0.01 * xSpeed) * height * .4;
+	let oscY = cos(timestamp * 0.01 * ySpeed) * height * .4;
+	let radius = positiveModulate(sin(timestamp * 0.01 * pulseSpeed)) * 10 + 10;
 	
 	c.ellipse(oscX, oscY, radius, radius);
 }
@@ -64,36 +68,44 @@ function positiveModulate(value) {
 //**************************************
 
 let rgbShader, scanLineShader, blurHShader, blurVShader, bloomShader;
-let scanLinePass, rgbPass, blurPass1, blurPass2, bloomPass;
+let prePass, scanLinePass, rgbPass, blurPass1, blurPass2, bloomPass;
 let xOffset = 0.001;
 let yOffset = 0;
 let xLineWidth = 0.0008;
 let xLineOffset = 0.002;
 let yLineWidth = 0.0015;
 let yLineOffset = 0.01;
-let bloomAmount = 10;
+let bloomAmount = 5;
 
 function loadShaders() {
-	rgbShader = loadShader('/data/shader.vert', '/data/rgbSplit.frag');
+	rgbShader = loadShader('/data/rgbSplit.vert', '/data/rgbSplit.frag');
 	scanLineShader = loadShader('/data/shader.vert', '/data/scanlines.frag');
-	blurHShader = loadShader('/data/shader.vert', '/data/blur.frag');
-	blurVShader = loadShader('/data/shader.vert', '/data/blur.frag');
-	bloomShader = loadShader('/data/shader.vert', '/data/bloom.frag');
+	blurHShader = loadShader('/data/blur.vert', '/data/blur.frag');
+	blurVShader = loadShader('/data/blur.vert', '/data/blur.frag');
+	bloomShader = loadShader('/data/shader.vert', '/data/bloom.frag')
 }
 
 function setupShaders() {
+	prePass = createGraphics(1 / xLineOffset, 1 / yLineOffset, WEBGL);
 	scanLinePass = createGraphics(windowWidth, windowHeight, WEBGL);
 	rgbPass = createGraphics(windowWidth, windowHeight, WEBGL);
 	blurPass1 = createGraphics(windowWidth / 16, windowHeight / 16, WEBGL);
 	blurPass2 = createGraphics(windowWidth / 16, windowHeight / 16, WEBGL);
 	bloomPass = createGraphics(windowWidth, windowHeight, WEBGL);
 	
+	prePass.noStroke();
+	rgbPass.noStroke();
+	blurPass1.noStroke();
+	blurPass2.noStroke();
+	bloomPass.noStroke();
 	scanLinePass.noStroke();
 	noStroke();
 }
 
 function applyShaders() {
-	scanLineShader.setUniform('tex0', c);
+	prePass.image(c, -prePass.width/2, -prePass.height/2, prePass.width, prePass.height);
+	
+	scanLineShader.setUniform('tex0', prePass);
 	scanLineShader.setUniform('xLineWidth', xLineWidth);
 	scanLineShader.setUniform('yLineWidth', yLineWidth);
 	scanLineShader.setUniform('xLineOffset', xLineOffset);
@@ -152,14 +164,15 @@ const midiKnob7 = 22;
 const midiKnob8 = 23;
 
 function mapMidiToValue(key, value) {
-	console.log(key);
-	
-	switch(key) {
+	switch(parseInt(key)) {
 		case midiKnob1:
 			xOffset = value / 127 / 100;
 			break;
 		case midiKnob2:
 			yOffset = value / 127 / 100;
+			break;
+		case midiKnob3:
+			bloomAmount = (value / 127 * 5) - 1;
 			break;
 		case midiSlider1:
 			bgHue = value;
@@ -179,6 +192,11 @@ function mapMidiToValue(key, value) {
 		case midiKnob8:
 			animationSpeed = value / 127 * 20
 			break;
+	}
+	
+	// store new values
+	if(typeof key == "number") {
+		storeVariable(key, value, "MIDI");
 	}
 }
 
@@ -212,7 +230,7 @@ function parseData(obj) {
 	}
 }
 
-function noteOn(note) {
+function noteOn(note) { 
 	// use note.type, .channel, .name, .number, .octave, .velocity
 	// let x = map(note.number, 0, 128, 0, width);
 	// let h = map(note.velocity, 0, 128, 0, height);
@@ -230,7 +248,7 @@ function noteOff(note) {
 
 function pitchBend(pitch) {
 	// use pitch.type, .channel, .value
-	console.log(pitch.value);
+	// console.log(pitch.value);
 }
 
 function controlChange(control) {
@@ -240,4 +258,57 @@ function controlChange(control) {
 
 function midiToFreq(noteNumber) {
 	return 440 * Math.pow(2, (noteNumber - 69) / 12);
+}
+
+//**************************************
+// CACHE SHIZZLE
+//**************************************
+
+function mapCacheToValue(key, value) {
+	switch(key) {
+		case "frameCount":
+			frameCount = parseInt(value);
+			break;
+	}
+}
+
+function restoreVariables(method, namespace = "") {
+	const cache = getCache(namespace);
+	Object.entries(cache)
+		.forEach(([key, value]) => method(key, value));
+}
+
+function storeVariable(key, value, namespace = "") {
+	const { cacheType, cacheKey } = getCacheRef(namespace);
+	const cache = getCache(namespace);
+	
+	cacheType[cacheKey] = JSON.stringify({
+		...cache,
+		[key]: value
+	});
+}
+
+function getCache(namespace = "") {
+	const { cacheType, cacheKey } = getCacheRef(namespace);
+	return cacheType[cacheKey]
+	  ? JSON.parse(cacheType[cacheKey])
+	  : {};
+}
+
+function getCacheRef(namespace = "") {
+	const urlParams = new URLSearchParams(window.location.search);
+	const prefix = "bonanza-cache";
+	const key = `${prefix}${namespace ? '-' + namespace : ''}`;
+	
+	if(urlParams.has('cc')) {
+		return {
+			cacheType: localStorage,
+			cacheKey: `${key}-${urlParams.get('cc')}`
+		};
+	}
+	
+	return {
+		cacheType: sessionStorage,
+		cacheKey: key
+	};
 }
