@@ -10,6 +10,7 @@ uniform sampler2D tex1;
 // the mouse value between 0 and 1
 uniform float bloomAmount;
 
+uniform float pixelOpacity;
 uniform float xLineWidth;
 uniform float xLineOffset;
 uniform float yLineWidth;
@@ -35,7 +36,7 @@ void main() {
 
   // mix the blur and camera together according to how bright the blurred image is
   // use the mouse to control the bloom
-  vec4 bloom = cam + blur * clamp(avg*bloomAmount, 0.0, 1.0) + bloomAmount * pixelScale * blur;
+  vec4 bloom = cam + blur * clamp(avg*bloomAmount, 0.0, 1.0) + pixelOpacity * bloomAmount * (pixelScale - pow(xLineOffset * yLineOffset, 10.0)) * blur;
 
   gl_FragColor = bloom;
 }

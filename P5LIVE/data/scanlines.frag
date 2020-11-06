@@ -6,6 +6,7 @@ varying vec2 vTexCoord;
 // our texture coming from p5
 uniform sampler2D tex0;
 
+uniform float opacity;
 uniform float xLineWidth;
 uniform float xLineOffset;
 uniform float yLineWidth;
@@ -19,7 +20,7 @@ void main() {
   float xscale = min(abs(xLineWidth - xmod), xLineWidth) / xLineWidth;
   float ymod = mod(vTexCoord.y, yLineOffset);
   float yscale = min(abs(yLineWidth - ymod), yLineWidth) / yLineWidth;
-  float scale = xscale * yscale;
+  float scale = max(opacity, xscale * yscale);
 
   gl_FragColor = vec4(texture2D(tex0, uv) * scale);
 }
