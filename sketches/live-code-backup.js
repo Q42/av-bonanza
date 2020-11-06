@@ -5,6 +5,7 @@ let bgSaturation = 0;
 let bgBrightness = 0;
 let bgOpacity = 0;
 let animationSpeed = 0;
+let pulseSeed = 3;
 
 function preload() {
 	loadShaders();
@@ -40,7 +41,7 @@ function draw() {
 	// Generated chasing dots
 	const now = Date.now() / 100;
 	for(let i = 1; i <= 24; i++) {
-		drawStep(i / (8 / animationSpeed), i / (8 / animationSpeed), 3, now);
+		drawStep(i / (8 / animationSpeed), i / (8 / animationSpeed), 100, now);
 	}
 	
 	applyShaders();
@@ -134,7 +135,11 @@ function applyShaders() {
 	
 	bloomShader.setUniform('tex0', rgbPass);
 	bloomShader.setUniform('tex1', blurPass2);
-	bloomShader.setUniform('mouseX', bloomAmount);
+	bloomShader.setUniform('bloomAmount', bloomAmount);
+	bloomShader.setUniform('xLineWidth', xLineWidth);
+	bloomShader.setUniform('yLineWidth', yLineWidth);
+	bloomShader.setUniform('xLineOffset', xLineOffset);
+	bloomShader.setUniform('yLineOffset', yLineOffset);
 
 	bloomPass.shader(bloomShader);
 	bloomPass.rect(0, 0, width, height);
@@ -172,7 +177,7 @@ function mapMidiToValue(key, value) {
 			yOffset = value / 127 / 100;
 			break;
 		case midiKnob3:
-			bloomAmount = (value / 127 * 5) - 1;
+			bloomAmount = value / 127 * 5;
 			break;
 		case midiSlider1:
 			bgHue = value;
